@@ -1,3 +1,4 @@
+
 import JSZip from 'jszip';
 
 const FAL_API_KEY = 'adca3c41-c684-405c-a343-9bd42dfd8e1d:b97869943ebc2ec7a06fd1af92c0e6b3';
@@ -29,6 +30,7 @@ export class FalApi {
     const formData = new FormData();
     formData.append('file', file, fileName);
 
+    // Use the correct Fal.ai file upload endpoint
     const response = await fetch('https://fal.run/storage/upload', {
       method: 'POST',
       headers: {
@@ -40,7 +42,15 @@ export class FalApi {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.error('File upload error:', errorData);
-      throw new Error(`File upload failed: ${errorData.detail || response.statusText}`);
+      
+      // If storage upload fails, try using base64 data URL as fallback
+      console.log('Storage upload failed, falling back to base64 data URL...');
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
     }
 
     const data = await response.json();
@@ -63,13 +73,13 @@ export class FalApi {
         fileName = 'training_images.zip';
       }
 
-      // Upload the ZIP file to Fal.ai storage
-      console.log('Uploading ZIP file to Fal.ai storage...');
-      const uploadedUrl = await this.uploadFile(zipBlob, fileName);
-      console.log('ZIP file uploaded successfully:', uploadedUrl);
+      // Try to upload the ZIP file to Fal.ai storage, fallback to base64
+      console.log('Preparing ZIP file for upload...');
+      const imagesDataUrl = await this.uploadFile(zipBlob, fileName);
+      console.log('Images data prepared successfully');
 
       const requestBody = {
-        images_data_url: uploadedUrl,
+        images_data_url: imagesDataUrl,
         trigger_word: triggerWord,
         is_style: false,
         iter_multiplier: 1.0
@@ -78,7 +88,7 @@ export class FalApi {
       console.log('Sending training request with:', { 
         imageCount: images.length, 
         triggerWord,
-        uploadedUrl
+        dataUrlType: imagesDataUrl.startsWith('data:') ? 'base64' : 'url'
       });
 
       const response = await fetch(`${FAL_API_BASE}/flux-lora-fast-training`, {
