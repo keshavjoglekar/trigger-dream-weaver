@@ -49,13 +49,13 @@ export class FalApi {
 
     // If queued, poll the status URL until completion
     if (queueResult.status === 'IN_QUEUE' && queueResult.status_url) {
-      return this.pollForResult(queueResult.status_url);
+      return this.pollForResult(queueResult.status_url, queueResult.response_url);
     }
 
     throw new Error('Unexpected response format from API');
   }
 
-  private async pollForResult(statusUrl: string): Promise<{ images: Array<{ url: string }> }> {
+  private async pollForResult(statusUrl: string, responseUrl: string): Promise<{ images: Array<{ url: string }> }> {
     console.log('Polling status URL:', statusUrl);
     
     const maxAttempts = 60; // 5 minutes max (5 second intervals)
@@ -81,9 +81,30 @@ export class FalApi {
         const statusResult = await statusResponse.json();
         console.log(`Status check ${attempts}:`, statusResult);
 
-        if (statusResult.status === 'COMPLETED' && statusResult.images) {
-          console.log('Generation completed successfully');
-          return statusResult;
+        if (statusResult.status === 'COMPLETED') {
+          console.log('Generation completed, fetching final result from:', responseUrl);
+          
+          // Fetch the actual result with images
+          const resultResponse = await fetch(responseUrl, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Key ${this.apiKey}`,
+            },
+          });
+
+          if (!resultResponse.ok) {
+            throw new Error(`Failed to fetch result: ${resultResponse.statusText}`);
+          }
+
+          const finalResult = await resultResponse.json();
+          console.log('Final result:', finalResult);
+
+          if (finalResult.images && finalResult.images.length > 0) {
+            console.log('Generation completed successfully');
+            return finalResult;
+          } else {
+            throw new Error('No images in final result');
+          }
         }
 
         if (statusResult.status === 'FAILED') {
