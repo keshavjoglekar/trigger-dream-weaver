@@ -1,18 +1,18 @@
 import JSZip from 'jszip';
-import { S3Uploader, S3Config } from './s3Upload';
+import { UploadcareUploader, UploadcareConfig } from './uploadcare';
 
 const FAL_API_KEY = 'adca3c41-c684-405c-a343-9bd42dfd8e1d:b97869943ebc2ec7a06fd1af92c0e6b3';
 
 export class FalApi {
   private apiKey: string;
-  private s3Uploader: S3Uploader | null = null;
+  private uploadcareUploader: UploadcareUploader | null = null;
 
   constructor() {
     this.apiKey = FAL_API_KEY;
   }
 
-  setS3Config(config: S3Config) {
-    this.s3Uploader = new S3Uploader(config);
+  setUploadcareConfig(config: UploadcareConfig) {
+    this.uploadcareUploader = new UploadcareUploader(config);
   }
 
   private async createZipFromImages(images: File[]): Promise<Blob> {
@@ -36,24 +36,22 @@ export class FalApi {
         imagesDataUrl = images;
         console.log('Using direct URL:', imagesDataUrl);
       } else {
-        if (!this.s3Uploader) {
-          throw new Error('S3 configuration not set. Please configure AWS credentials first.');
+        if (!this.uploadcareUploader) {
+          throw new Error('Uploadcare configuration not set. Please configure Uploadcare first.');
         }
 
-        let zipBlob: Blob;
-        let fileName: string;
+        let fileToUpload: File;
 
         if (images.length === 1 && images[0].type === 'application/zip') {
-          zipBlob = images[0];
-          fileName = images[0].name;
+          fileToUpload = images[0];
         } else {
-          zipBlob = await this.createZipFromImages(images);
-          fileName = 'training_images.zip';
+          const zipBlob = await this.createZipFromImages(images);
+          fileToUpload = new File([zipBlob], 'training_images.zip', { type: 'application/zip' });
         }
 
-        console.log('Uploading to S3...');
-        imagesDataUrl = await this.s3Uploader.uploadFile(zipBlob, fileName);
-        console.log('S3 upload successful:', imagesDataUrl);
+        console.log('Uploading to Uploadcare...');
+        imagesDataUrl = await this.uploadcareUploader.uploadFile(fileToUpload);
+        console.log('Uploadcare upload successful:', imagesDataUrl);
       }
 
       const requestBody = {

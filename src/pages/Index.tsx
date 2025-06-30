@@ -9,9 +9,9 @@ import { toast } from "sonner";
 import ImageUpload from "@/components/ImageUpload";
 import TrainingStatus from "@/components/TrainingStatus";
 import ImageGeneration from "@/components/ImageGeneration";
-import AwsCredentials from "@/components/AwsCredentials";
+import UploadcareConfigComponent from "@/components/UploadcareConfig";
 import { falApi } from "@/lib/falApi";
-import { S3Config } from "@/lib/s3Upload";
+import { UploadcareConfig } from "@/lib/uploadcare";
 
 type Step = 'upload' | 'training' | 'generate';
 
@@ -22,21 +22,21 @@ const Index = () => {
   const [trainingId, setTrainingId] = useState<string | null>(null);
   const [loraModelUrl, setLoraModelUrl] = useState<string | null>(null);
   const [isTestMode, setIsTestMode] = useState(false);
-  const [s3Config, setS3Config] = useState<S3Config | null>(null);
+  const [uploadcareConfig, setUploadcareConfig] = useState<UploadcareConfig | null>(null);
 
   useEffect(() => {
-    // Load saved AWS config from localStorage
-    const savedConfig = localStorage.getItem('aws-s3-config');
+    // Load saved Uploadcare config from localStorage
+    const savedConfig = localStorage.getItem('uploadcare-config');
     if (savedConfig) {
       const config = JSON.parse(savedConfig);
-      setS3Config(config);
-      falApi.setS3Config(config);
+      setUploadcareConfig(config);
+      falApi.setUploadcareConfig(config);
     }
   }, []);
 
-  const handleS3ConfigSave = (config: S3Config) => {
-    setS3Config(config);
-    falApi.setS3Config(config);
+  const handleUploadcareConfigSave = (config: UploadcareConfig) => {
+    setUploadcareConfig(config);
+    falApi.setUploadcareConfig(config);
   };
 
   const handleImagesUploaded = (images: File[]) => {
@@ -49,8 +49,8 @@ const Index = () => {
       toast.error("Please upload images and enter a trigger word");
       return;
     }
-    if (!s3Config) {
-      toast.error("Please configure AWS S3 credentials first");
+    if (!uploadcareConfig) {
+      toast.error("Please configure Uploadcare first");
       return;
     }
     setCurrentStep('training');
@@ -141,7 +141,7 @@ const Index = () => {
         <div className="max-w-4xl mx-auto">
           {currentStep === 'upload' && (
             <div className="space-y-6">
-              <AwsCredentials onSave={handleS3ConfigSave} savedConfig={s3Config} />
+              <UploadcareConfigComponent onSave={handleUploadcareConfigSave} savedConfig={uploadcareConfig} />
               
               <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
                 <CardHeader>
@@ -171,7 +171,7 @@ const Index = () => {
 
                   <Button
                     onClick={handleStartTraining}
-                    disabled={uploadedImages.length === 0 || !triggerWord.trim() || !s3Config}
+                    disabled={uploadedImages.length === 0 || !triggerWord.trim() || !uploadcareConfig}
                     className="w-full py-6 text-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                   >
                     <Zap className="mr-2" />

@@ -1,4 +1,3 @@
-
 import { falApi } from './falApi';
 
 // Mock API routes - In a real app, these would be server endpoints
