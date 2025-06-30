@@ -1,3 +1,4 @@
+
 import JSZip from 'jszip';
 import { UploadcareUploader, UploadcareConfig } from './uploadcare';
 
@@ -21,11 +22,20 @@ export class FalApi {
     for (let i = 0; i < images.length; i++) {
       const image = images[i];
       const arrayBuffer = await image.arrayBuffer();
-      const fileName = `image_${i + 1}.${image.name.split('.').pop() || 'jpg'}`;
+      // Use original filename if available, otherwise generate one
+      const extension = image.name.split('.').pop() || 'jpg';
+      const fileName = image.name || `image_${i + 1}.${extension}`;
       zip.file(fileName, arrayBuffer);
     }
     
-    return await zip.generateAsync({ type: 'blob' });
+    // Generate ZIP with better compression settings
+    return await zip.generateAsync({ 
+      type: 'blob',
+      compression: 'DEFLATE',
+      compressionOptions: {
+        level: 6
+      }
+    });
   }
 
   async trainLora(images: File[] | string, triggerWord: string): Promise<{ request_id: string }> {
@@ -42,14 +52,27 @@ export class FalApi {
 
         let fileToUpload: File;
 
+        // Check if we already have a ZIP file
         if (images.length === 1 && images[0].type === 'application/zip') {
           fileToUpload = images[0];
+          console.log('Using uploaded ZIP file:', fileToUpload.name);
+        } else if (images.length === 1 && images[0].name.endsWith('.zip')) {
+          // Handle ZIP files that might not have the correct MIME type
+          fileToUpload = images[0];
+          console.log('Using uploaded ZIP file (by extension):', fileToUpload.name);
         } else {
+          // Create ZIP from individual images
+          console.log('Creating ZIP from', images.length, 'images');
           const zipBlob = await this.createZipFromImages(images);
           fileToUpload = new File([zipBlob], 'training_images.zip', { type: 'application/zip' });
         }
 
-        console.log('Uploading to Uploadcare...');
+        console.log('Uploading to Uploadcare...', {
+          fileName: fileToUpload.name,
+          fileType: fileToUpload.type,
+          fileSize: fileToUpload.size
+        });
+        
         imagesDataUrl = await this.uploadcareUploader.uploadFile(fileToUpload);
         console.log('Uploadcare upload successful:', imagesDataUrl);
       }
