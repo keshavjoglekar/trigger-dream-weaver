@@ -1,90 +1,64 @@
 
-import { useState, useEffect } from "react";
-import { Upload, Zap, Image as ImageIcon, CheckCircle, TestTube, Cloud } from "lucide-react";
+import { useState } from "react";
+import { Zap, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import ImageUpload from "@/components/ImageUpload";
-import FileUploadStep from "@/components/FileUploadStep";
-import TrainingStatus from "@/components/TrainingStatus";
-import ImageGeneration from "@/components/ImageGeneration";
-import UploadcareConfigComponent from "@/components/UploadcareConfig";
 import { falApi } from "@/lib/falApi";
-import { UploadcareConfig } from "@/lib/uploadcare";
-
-type Step = 'upload' | 'storage' | 'training' | 'generate';
 
 const Index = () => {
-  const [currentStep, setCurrentStep] = useState<Step>('upload');
-  const [uploadedImages, setUploadedImages] = useState<File[]>([]);
-  const [uploadedZipUrl, setUploadedZipUrl] = useState<string | null>(null);
-  const [triggerWord, setTriggerWord] = useState('');
-  const [trainingId, setTrainingId] = useState<string | null>(null);
-  const [loraModelUrl, setLoraModelUrl] = useState<string | null>(null);
-  const [isTestMode, setIsTestMode] = useState(false);
-  const [uploadcareConfig, setUploadcareConfig] = useState<UploadcareConfig | null>(null);
+  const [loraUrl, setLoraUrl] = useState('');
+  const [prompt, setPrompt] = useState('');
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  useEffect(() => {
-    // Load saved Uploadcare config from localStorage
-    const savedConfig = localStorage.getItem('uploadcare-config');
-    if (savedConfig) {
-      const config = JSON.parse(savedConfig);
-      setUploadcareConfig(config);
-      falApi.setUploadcareConfig(config);
-    }
-  }, []);
-
-  const handleUploadcareConfigSave = (config: UploadcareConfig) => {
-    setUploadcareConfig(config);
-    falApi.setUploadcareConfig(config);
-  };
-
-  const handleImagesUploaded = (images: File[]) => {
-    setUploadedImages(images);
-    toast.success(`${images.length} files uploaded successfully!`);
-  };
-
-  const handleProceedToStorage = () => {
-    if (uploadedImages.length === 0 || !triggerWord.trim()) {
-      toast.error("Please upload images and enter a trigger word");
+  const generateImage = async () => {
+    if (!loraUrl.trim() || !prompt.trim()) {
+      toast.error("Please provide both LoRA URL and prompt");
       return;
     }
-    if (!uploadcareConfig) {
-      toast.error("Please configure Uploadcare first");
-      return;
+
+    setIsGenerating(true);
+    try {
+      console.log('Generating image with:', { prompt, loraUrl });
+      const result = await falApi.generateImage(prompt, loraUrl);
+      
+      if (result.images && result.images.length > 0) {
+        setGeneratedImage(result.images[0].url);
+        toast.success('Image generated successfully!');
+      } else {
+        throw new Error('No image in response');
+      }
+    } catch (error) {
+      console.error('Generation error:', error);
+      toast.error('Failed to generate image. Please check your LoRA URL and try again.');
+    } finally {
+      setIsGenerating(false);
     }
-    setCurrentStep('storage');
-    toast.info("Ready to upload to storage...");
   };
 
-  const handleStorageComplete = (zipUrl: string) => {
-    setUploadedZipUrl(zipUrl);
-    setCurrentStep('training');
-    toast.success("Files uploaded to storage successfully!");
-  };
+  const downloadImage = async () => {
+    if (!generatedImage) return;
 
-  const handleTestWithUrl = () => {
-    setIsTestMode(true);
-    setTriggerWord('testdog');
-    setUploadedZipUrl('https://botboost-video-hosting.s3.eu-north-1.amazonaws.com/drive-download-20250315T101200Z-001.zip');
-    setCurrentStep('training');
-    toast.info("Using test URL for training...");
+    try {
+      const response = await fetch(generatedImage);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `generated-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('Image downloaded!');
+    } catch (error) {
+      toast.error('Failed to download image');
+    }
   };
-
-  const handleTrainingComplete = (modelUrl: string) => {
-    setLoraModelUrl(modelUrl);
-    setCurrentStep('generate');
-    toast.success("LoRA model trained successfully! Ready to generate images.");
-  };
-
-  const steps = [
-    { id: 'upload', label: 'Upload Files', icon: Upload },
-    { id: 'storage', label: 'Store in Cloud', icon: Cloud },
-    { id: 'training', label: 'Train LoRA', icon: Zap },
-    { id: 'generate', label: 'Generate Images', icon: ImageIcon },
-  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
@@ -92,132 +66,106 @@ const Index = () => {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-4">
-            AI LoRA Studio
+            LoRA Image Generator
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Train your own AI model with your images, then generate stunning personalized artwork
+            Generate images using your LoRA model URL
           </p>
         </div>
 
-        {/* Test Button */}
-        <div className="text-center mb-8">
-          <Button
-            onClick={handleTestWithUrl}
-            variant="outline"
-            className="bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100"
-          >
-            <TestTube className="mr-2" />
-            Test with Provided URL
-          </Button>
-        </div>
-
-        {/* Progress Steps */}
-        <div className="flex justify-center mb-12">
-          <div className="flex items-center space-x-4">
-            {steps.map((step, index) => {
-              const Icon = step.icon;
-              const isActive = currentStep === step.id;
-              const isCompleted = 
-                (step.id === 'upload' && uploadedImages.length > 0) ||
-                (step.id === 'storage' && uploadedZipUrl) ||
-                (step.id === 'training' && loraModelUrl) ||
-                (step.id === 'generate' && loraModelUrl);
-              
-              return (
-                <div key={step.id} className="flex items-center">
-                  <div className={`flex items-center space-x-2 px-4 py-2 rounded-full transition-all ${
-                    isActive 
-                      ? 'bg-purple-100 text-purple-700 border-2 border-purple-300' 
-                      : isCompleted 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-gray-100 text-gray-500'
-                  }`}>
-                    {isCompleted ? (
-                      <CheckCircle size={20} />
-                    ) : (
-                      <Icon size={20} />
-                    )}
-                    <span className="font-medium">{step.label}</span>
-                  </div>
-                  {index < steps.length - 1 && (
-                    <div className={`w-12 h-0.5 ${isCompleted ? 'bg-green-300' : 'bg-gray-300'}`} />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
         {/* Main Content */}
-        <div className="max-w-4xl mx-auto">
-          {currentStep === 'upload' && (
-            <div className="space-y-6">
-              <UploadcareConfigComponent onSave={handleUploadcareConfigSave} savedConfig={uploadcareConfig} />
-              
-              <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="text-2xl text-center">Step 1: Upload Your Files</CardTitle>
-                  <p className="text-center text-gray-600">
-                    Upload 5-20 high-quality images or a ZIP file containing your images
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <ImageUpload onImagesUploaded={handleImagesUploaded} />
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="trigger-word" className="text-lg font-medium">
-                      Trigger Word
-                    </Label>
-                    <Input
-                      id="trigger-word"
-                      placeholder="e.g., 'mydog', 'mycorp', 'mystyle'"
-                      value={triggerWord}
-                      onChange={(e) => setTriggerWord(e.target.value)}
-                      className="text-lg py-3"
-                    />
-                    <p className="text-sm text-gray-500">
-                      This word will be used to trigger your custom style in prompts
-                    </p>
-                  </div>
+        <div className="max-w-4xl mx-auto space-y-6">
+          <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-2xl text-center flex items-center justify-center space-x-2">
+                <Zap className="text-purple-500" size={24} />
+                <span>Generate with LoRA</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="lora-url" className="text-lg font-medium">
+                  LoRA Model URL
+                </Label>
+                <Input
+                  id="lora-url"
+                  placeholder="https://your-lora-model-url.com/model.safetensors"
+                  value={loraUrl}
+                  onChange={(e) => setLoraUrl(e.target.value)}
+                  className="text-lg py-3"
+                />
+                <p className="text-sm text-gray-500">
+                  Enter the URL of your trained LoRA model
+                </p>
+              </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="prompt" className="text-lg font-medium">
+                  Prompt
+                </Label>
+                <Textarea
+                  id="prompt"
+                  placeholder="A beautiful portrait of a person in a garden, high quality, detailed"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  className="min-h-[100px] text-lg"
+                />
+                <p className="text-sm text-gray-500">
+                  Describe what you want to generate
+                </p>
+              </div>
+
+              <Button
+                onClick={generateImage}
+                disabled={isGenerating || !loraUrl.trim() || !prompt.trim()}
+                className="w-full py-6 text-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              >
+                {isGenerating ? (
+                  <>
+                    <Zap className="mr-2 animate-pulse" />
+                    Generating Image...
+                  </>
+                ) : (
+                  <>
+                    <ImageIcon className="mr-2" />
+                    Generate Image
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {generatedImage && (
+            <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="text-xl">Generated Image</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="relative">
+                  <img
+                    src={generatedImage}
+                    alt="Generated"
+                    className="w-full rounded-lg shadow-lg"
+                  />
+                </div>
+                <div className="flex space-x-4">
                   <Button
-                    onClick={handleProceedToStorage}
-                    disabled={uploadedImages.length === 0 || !triggerWord.trim() || !uploadcareConfig}
-                    className="w-full py-6 text-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                    onClick={downloadImage}
+                    variant="outline"
+                    className="flex-1"
                   >
-                    <Cloud className="mr-2" />
-                    Proceed to Storage Upload
+                    Download
                   </Button>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {currentStep === 'storage' && (
-            <FileUploadStep
-              images={uploadedImages}
-              triggerWord={triggerWord}
-              onStorageComplete={handleStorageComplete}
-              uploadcareConfig={uploadcareConfig}
-            />
-          )}
-
-          {currentStep === 'training' && uploadedZipUrl && (
-            <TrainingStatus
-              images={uploadedImages}
-              triggerWord={triggerWord}
-              onComplete={handleTrainingComplete}
-              onTrainingId={setTrainingId}
-              zipUrl={uploadedZipUrl}
-              testUrl={isTestMode ? 'https://botboost-video-hosting.s3.eu-north-1.amazonaws.com/drive-download-20250315T101200Z-001.zip' : undefined}
-            />
-          )}
-
-          {currentStep === 'generate' && loraModelUrl && (
-            <ImageGeneration
-              loraModelUrl={loraModelUrl}
-              triggerWord={triggerWord}
-            />
+                  <Button
+                    onClick={generateImage}
+                    className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                    disabled={isGenerating}
+                  >
+                    Generate Another
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </div>
       </div>
