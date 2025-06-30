@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { Upload, Zap, Image as ImageIcon, CheckCircle } from "lucide-react";
+import { Upload, Zap, Image as ImageIcon, CheckCircle, TestTube } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,6 +19,7 @@ const Index = () => {
   const [triggerWord, setTriggerWord] = useState('');
   const [trainingId, setTrainingId] = useState<string | null>(null);
   const [loraModelUrl, setLoraModelUrl] = useState<string | null>(null);
+  const [isTestMode, setIsTestMode] = useState(false);
 
   const handleImagesUploaded = (images: File[]) => {
     setUploadedImages(images);
@@ -33,6 +33,13 @@ const Index = () => {
     }
     setCurrentStep('training');
     toast.info("Starting LoRA training...");
+  };
+
+  const handleTestWithUrl = () => {
+    setIsTestMode(true);
+    setTriggerWord('testdog'); // Set a default trigger word for testing
+    setCurrentStep('training');
+    toast.info("Starting test LoRA training with provided URL...");
   };
 
   const handleTrainingComplete = (modelUrl: string) => {
@@ -58,6 +65,18 @@ const Index = () => {
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Train your own AI model with your images, then generate stunning personalized artwork
           </p>
+        </div>
+
+        {/* Test Button */}
+        <div className="text-center mb-8">
+          <Button
+            onClick={handleTestWithUrl}
+            variant="outline"
+            className="bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+          >
+            <TestTube className="mr-2" />
+            Test with Provided URL
+          </Button>
         </div>
 
         {/* Progress Steps */}
@@ -143,6 +162,7 @@ const Index = () => {
               triggerWord={triggerWord}
               onComplete={handleTrainingComplete}
               onTrainingId={setTrainingId}
+              testUrl={isTestMode ? 'https://botboost-video-hosting.s3.eu-north-1.amazonaws.com/drive-download-20250315T101200Z-001.zip' : undefined}
             />
           )}
 

@@ -1,4 +1,3 @@
-
 import JSZip from 'jszip';
 
 const FAL_API_KEY = 'adca3c41-c684-405c-a343-9bd42dfd8e1d:b97869943ebc2ec7a06fd1af92c0e6b3';
@@ -69,26 +68,31 @@ export class FalApi {
     throw new Error(`All storage endpoints failed. Last error: ${lastError?.message}`);
   }
 
-  async trainLora(images: File[], triggerWord: string): Promise<{ request_id: string }> {
+  async trainLora(images: File[] | string, triggerWord: string): Promise<{ request_id: string }> {
     try {
-      let zipBlob: Blob;
-      let fileName: string;
+      let imagesDataUrl: string;
 
-      // Handle ZIP files vs individual images
-      if (images.length === 1 && images[0].type === 'application/zip') {
-        // For ZIP files, use as-is
-        zipBlob = images[0];
-        fileName = images[0].name;
+      // Check if images is a direct URL string (for testing)
+      if (typeof images === 'string') {
+        imagesDataUrl = images;
+        console.log('Using direct URL for testing:', imagesDataUrl);
       } else {
-        // For multiple individual images, create a ZIP file
-        zipBlob = await this.createZipFromImages(images);
-        fileName = 'training_images.zip';
-      }
+        // Handle File[] as before
+        let zipBlob: Blob;
+        let fileName: string;
 
-      // Try to upload the ZIP file to Fal.ai storage
-      console.log('Preparing ZIP file for upload...');
-      const imagesDataUrl = await this.uploadFile(zipBlob, fileName);
-      console.log('Images data prepared successfully');
+        if (images.length === 1 && images[0].type === 'application/zip') {
+          zipBlob = images[0];
+          fileName = images[0].name;
+        } else {
+          zipBlob = await this.createZipFromImages(images);
+          fileName = 'training_images.zip';
+        }
+
+        console.log('Preparing ZIP file for upload...');
+        imagesDataUrl = await this.uploadFile(zipBlob, fileName);
+        console.log('Images data prepared successfully');
+      }
 
       const requestBody = {
         images_data_url: imagesDataUrl,
@@ -98,7 +102,6 @@ export class FalApi {
       };
 
       console.log('Sending training request with:', { 
-        imageCount: images.length, 
         triggerWord,
         dataUrl: imagesDataUrl
       });
@@ -171,3 +174,8 @@ export class FalApi {
 }
 
 export const falApi = new FalApi();
+
+// Export a test function for direct URL training
+export const testTrainLoraWithUrl = async (url: string, triggerWord: string) => {
+  return await falApi.trainLora(url, triggerWord);
+};
