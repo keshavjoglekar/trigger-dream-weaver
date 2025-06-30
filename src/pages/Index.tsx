@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Zap, Image as ImageIcon } from "lucide-react";
+import { Zap, Image as ImageIcon, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ const Index = () => {
   const [prompt, setPrompt] = useState('');
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<string>('');
 
   const generateImage = async () => {
     if (!loraUrl.trim() || !prompt.trim()) {
@@ -22,18 +23,35 @@ const Index = () => {
     }
 
     setIsGenerating(true);
+    setGenerationStatus('Submitting request...');
+    
     try {
       console.log('Generating image with:', { prompt, loraUrl });
+      
+      // Show different status messages during generation
+      const statusInterval = setInterval(() => {
+        setGenerationStatus(prev => {
+          if (prev.includes('Submitting')) return 'Queued for generation...';
+          if (prev.includes('Queued')) return 'Processing your image...';
+          if (prev.includes('Processing')) return 'Almost ready...';
+          return 'Finalizing...';
+        });
+      }, 3000);
+
       const result = await falApi.generateImage(prompt, loraUrl);
+      
+      clearInterval(statusInterval);
       
       if (result.images && result.images.length > 0) {
         setGeneratedImage(result.images[0].url);
+        setGenerationStatus('');
         toast.success('Image generated successfully!');
       } else {
         throw new Error('No image in response');
       }
     } catch (error) {
       console.error('Generation error:', error);
+      setGenerationStatus('');
       toast.error('Failed to generate image. Please check your LoRA URL and try again.');
     } finally {
       setIsGenerating(false);
@@ -122,8 +140,8 @@ const Index = () => {
               >
                 {isGenerating ? (
                   <>
-                    <Zap className="mr-2 animate-pulse" />
-                    Generating Image...
+                    <Clock className="mr-2 animate-spin" />
+                    {generationStatus || 'Generating Image...'}
                   </>
                 ) : (
                   <>
@@ -132,6 +150,12 @@ const Index = () => {
                   </>
                 )}
               </Button>
+
+              {isGenerating && (
+                <div className="text-center text-sm text-gray-600">
+                  <p>This may take a few minutes. Please don't close the page.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

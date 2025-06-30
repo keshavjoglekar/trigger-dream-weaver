@@ -11,6 +11,7 @@ export class FalApi {
   async generateImage(prompt: string, loraUrl: string): Promise<{ images: Array<{ url: string }> }> {
     console.log('Generating image with FAL API:', { prompt, loraUrl });
     
+    // Initial request to queue the generation
     const response = await fetch(`https://queue.fal.run/fal-ai/flux-lora`, {
       method: 'POST',
       headers: {
@@ -38,9 +39,67 @@ export class FalApi {
       throw new Error(`Generation failed: ${errorData.detail || response.statusText}`);
     }
 
-    const result = await response.json();
-    console.log('Generation result:', result);
-    return result;
+    const queueResult = await response.json();
+    console.log('Queue result:', queueResult);
+
+    // If the response already contains images (immediate response), return them
+    if (queueResult.images && queueResult.images.length > 0) {
+      return queueResult;
+    }
+
+    // If queued, poll the status URL until completion
+    if (queueResult.status === 'IN_QUEUE' && queueResult.status_url) {
+      return this.pollForResult(queueResult.status_url);
+    }
+
+    throw new Error('Unexpected response format from API');
+  }
+
+  private async pollForResult(statusUrl: string): Promise<{ images: Array<{ url: string }> }> {
+    console.log('Polling status URL:', statusUrl);
+    
+    const maxAttempts = 60; // 5 minutes max (5 second intervals)
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+      attempts++;
+
+      try {
+        const statusResponse = await fetch(statusUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Key ${this.apiKey}`,
+          },
+        });
+
+        if (!statusResponse.ok) {
+          console.error('Status check failed:', statusResponse.statusText);
+          continue;
+        }
+
+        const statusResult = await statusResponse.json();
+        console.log(`Status check ${attempts}:`, statusResult);
+
+        if (statusResult.status === 'COMPLETED' && statusResult.images) {
+          console.log('Generation completed successfully');
+          return statusResult;
+        }
+
+        if (statusResult.status === 'FAILED') {
+          throw new Error(`Generation failed: ${statusResult.error || 'Unknown error'}`);
+        }
+
+        // Continue polling if still IN_QUEUE or IN_PROGRESS
+      } catch (error) {
+        console.error('Error during status check:', error);
+        if (attempts >= maxAttempts) {
+          throw new Error('Status polling failed after maximum attempts');
+        }
+      }
+    }
+
+    throw new Error('Generation timed out after 5 minutes');
   }
 }
 
