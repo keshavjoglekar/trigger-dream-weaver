@@ -1,4 +1,3 @@
-
 import JSZip from 'jszip';
 
 const FAL_API_KEY = 'adca3c41-c684-405c-a343-9bd42dfd8e1d:b97869943ebc2ec7a06fd1af92c0e6b3';
@@ -11,16 +10,7 @@ export class FalApi {
     this.apiKey = FAL_API_KEY;
   }
 
-  private async fileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
-  private async createZipFromImages(images: File[]): Promise<string> {
+  private async createZipFromImages(images: File[]): Promise<Blob> {
     const zip = new JSZip();
     
     // Add each image to the ZIP
@@ -32,40 +22,63 @@ export class FalApi {
     }
     
     // Generate ZIP file as blob
-    const zipBlob = await zip.generateAsync({ type: 'blob' });
-    
-    // Convert ZIP blob to base64 data URL
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(zipBlob);
+    return await zip.generateAsync({ type: 'blob' });
+  }
+
+  private async uploadFile(file: Blob, fileName: string): Promise<string> {
+    const formData = new FormData();
+    formData.append('file', file, fileName);
+
+    const response = await fetch('https://fal.run/storage/upload', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Key ${this.apiKey}`,
+      },
+      body: formData,
     });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('File upload error:', errorData);
+      throw new Error(`File upload failed: ${errorData.detail || response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.url;
   }
 
   async trainLora(images: File[], triggerWord: string): Promise<{ request_id: string }> {
     try {
-      let requestBody: any = {
+      let zipBlob: Blob;
+      let fileName: string;
+
+      // Handle ZIP files vs individual images
+      if (images.length === 1 && images[0].type === 'application/zip') {
+        // For ZIP files, use as-is
+        zipBlob = images[0];
+        fileName = images[0].name;
+      } else {
+        // For multiple individual images, create a ZIP file
+        zipBlob = await this.createZipFromImages(images);
+        fileName = 'training_images.zip';
+      }
+
+      // Upload the ZIP file to Fal.ai storage
+      console.log('Uploading ZIP file to Fal.ai storage...');
+      const uploadedUrl = await this.uploadFile(zipBlob, fileName);
+      console.log('ZIP file uploaded successfully:', uploadedUrl);
+
+      const requestBody = {
+        images_data_url: uploadedUrl,
         trigger_word: triggerWord,
         is_style: false,
         iter_multiplier: 1.0
       };
 
-      // Handle ZIP files vs individual images
-      if (images.length === 1 && images[0].type === 'application/zip') {
-        // For ZIP files, send as single data URL
-        const zipDataUrl = await this.fileToBase64(images[0]);
-        requestBody.images_data_url = zipDataUrl;
-      } else {
-        // For multiple individual images, create a ZIP file
-        const zipDataUrl = await this.createZipFromImages(images);
-        requestBody.images_data_url = zipDataUrl;
-      }
-
       console.log('Sending training request with:', { 
         imageCount: images.length, 
         triggerWord,
-        requestBodyKeys: Object.keys(requestBody)
+        uploadedUrl
       });
 
       const response = await fetch(`${FAL_API_BASE}/flux-lora-fast-training`, {
