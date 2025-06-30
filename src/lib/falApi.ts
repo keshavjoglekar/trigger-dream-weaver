@@ -1,7 +1,7 @@
+
 import JSZip from 'jszip';
 
 const FAL_API_KEY = 'adca3c41-c684-405c-a343-9bd42dfd8e1d:b97869943ebc2ec7a06fd1af92c0e6b3';
-const FAL_API_BASE = 'https://fal.run/fal-ai';
 
 export class FalApi {
   private apiKey: string;
@@ -29,43 +29,27 @@ export class FalApi {
     const formData = new FormData();
     formData.append('file', file, fileName);
 
-    // Try different possible Fal.ai storage endpoints
-    const endpoints = [
-      'https://storage.fal.run/files/upload',
-      'https://queue.fal.run/fal-ai/storage/upload', 
-      'https://fal.run/storage/upload',
-      'https://api.fal.ai/storage/upload'
-    ];
+    // Use the correct Fal.ai storage upload endpoint
+    const endpoint = 'https://storage.fal.run/files/upload';
+    
+    console.log(`Uploading file to: ${endpoint}`);
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Key ${this.apiKey}`,
+      },
+      body: formData,
+    });
 
-    let lastError = null;
-
-    for (const endpoint of endpoints) {
-      try {
-        console.log(`Trying storage endpoint: ${endpoint}`);
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Key ${this.apiKey}`,
-          },
-          body: formData,
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log(`Storage upload successful with endpoint: ${endpoint}`, data);
-          return data.url || data.file_url || data.download_url;
-        } else {
-          const errorData = await response.json().catch(() => ({}));
-          console.log(`Endpoint ${endpoint} failed:`, response.status, errorData);
-          lastError = new Error(`${endpoint}: ${errorData.detail || response.statusText} (Status: ${response.status})`);
-        }
-      } catch (error) {
-        console.log(`Endpoint ${endpoint} threw error:`, error);
-        lastError = error;
-      }
+    if (response.ok) {
+      const data = await response.json();
+      console.log(`Storage upload successful:`, data);
+      return data.url || data.file_url || data.download_url;
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      console.error(`Storage upload failed:`, response.status, errorData);
+      throw new Error(`Upload failed: ${errorData.detail || response.statusText} (Status: ${response.status})`);
     }
-
-    throw new Error(`All storage endpoints failed. Last error: ${lastError?.message}`);
   }
 
   async trainLora(images: File[] | string, triggerWord: string): Promise<{ request_id: string }> {
@@ -106,7 +90,8 @@ export class FalApi {
         dataUrl: imagesDataUrl
       });
 
-      const response = await fetch(`${FAL_API_BASE}/flux-lora-fast-training`, {
+      // Use the queue endpoint for training
+      const response = await fetch(`https://queue.fal.run/fal-ai/flux-lora-fast-training`, {
         method: 'POST',
         headers: {
           'Authorization': `Key ${this.apiKey}`,
@@ -118,7 +103,13 @@ export class FalApi {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error('Training API error:', errorData);
-        throw new Error(`Training failed: ${errorData.detail || response.statusText}`);
+        
+        // Better error handling for 403 Forbidden on S3 URLs
+        if (errorData.detail?.[0]?.msg?.includes('403: Forbidden')) {
+          throw new Error(`The provided URL is not publicly accessible. Please check the S3 bucket permissions or use a different publicly accessible URL.`);
+        }
+        
+        throw new Error(`Training failed: ${JSON.stringify(errorData.detail) || response.statusText}`);
       }
 
       return await response.json();
@@ -129,7 +120,7 @@ export class FalApi {
   }
 
   async getTrainingStatus(requestId: string): Promise<any> {
-    const response = await fetch(`${FAL_API_BASE}/flux-lora-fast-training/requests/${requestId}/status`, {
+    const response = await fetch(`https://queue.fal.run/fal-ai/flux-lora-fast-training/requests/${requestId}/status`, {
       headers: {
         'Authorization': `Key ${this.apiKey}`,
       },
@@ -142,8 +133,22 @@ export class FalApi {
     return await response.json();
   }
 
+  async getTrainingResult(requestId: string): Promise<any> {
+    const response = await fetch(`https://queue.fal.run/fal-ai/flux-lora-fast-training/requests/${requestId}`, {
+      headers: {
+        'Authorization': `Key ${this.apiKey}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get result: ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
   async generateImage(prompt: string, loraUrl: string): Promise<{ images: Array<{ url: string }> }> {
-    const response = await fetch(`${FAL_API_BASE}/flux-lora`, {
+    const response = await fetch(`https://queue.fal.run/fal-ai/flux-lora`, {
       method: 'POST',
       headers: {
         'Authorization': `Key ${this.apiKey}`,
