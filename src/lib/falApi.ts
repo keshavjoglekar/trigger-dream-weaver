@@ -1,4 +1,6 @@
 
+import JSZip from 'jszip';
+
 const FAL_API_KEY = 'adca3c41-c684-405c-a343-9bd42dfd8e1d:b97869943ebc2ec7a06fd1af92c0e6b3';
 const FAL_API_BASE = 'https://fal.run/fal-ai';
 
@@ -18,6 +20,29 @@ export class FalApi {
     });
   }
 
+  private async createZipFromImages(images: File[]): Promise<string> {
+    const zip = new JSZip();
+    
+    // Add each image to the ZIP
+    for (let i = 0; i < images.length; i++) {
+      const image = images[i];
+      const arrayBuffer = await image.arrayBuffer();
+      const fileName = `image_${i + 1}.${image.name.split('.').pop() || 'jpg'}`;
+      zip.file(fileName, arrayBuffer);
+    }
+    
+    // Generate ZIP file as blob
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    
+    // Convert ZIP blob to base64 data URL
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(zipBlob);
+    });
+  }
+
   async trainLora(images: File[], triggerWord: string): Promise<{ request_id: string }> {
     try {
       let requestBody: any = {
@@ -32,15 +57,9 @@ export class FalApi {
         const zipDataUrl = await this.fileToBase64(images[0]);
         requestBody.images_data_url = zipDataUrl;
       } else {
-        // For multiple individual images, we need to create a ZIP or send the first image
-        // For now, let's send the first image as the API expects a single string
-        const firstImageDataUrl = await this.fileToBase64(images[0]);
-        requestBody.images_data_url = firstImageDataUrl;
-        
-        // Log a warning about multiple images
-        if (images.length > 1) {
-          console.warn(`Multiple images provided (${images.length}), but API expects single string. Using first image only.`);
-        }
+        // For multiple individual images, create a ZIP file
+        const zipDataUrl = await this.createZipFromImages(images);
+        requestBody.images_data_url = zipDataUrl;
       }
 
       console.log('Sending training request with:', { 
