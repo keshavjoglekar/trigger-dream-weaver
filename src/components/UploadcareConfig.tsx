@@ -14,7 +14,7 @@ interface UploadcareConfigProps {
 }
 
 const UploadcareConfigComponent = ({ onSave, savedConfig }: UploadcareConfigProps) => {
-  const [publicKey, setPublicKey] = useState(savedConfig?.publicKey || '6fa93e955bb3ff14bef8');
+  const [publicKey, setPublicKey] = useState(savedConfig?.publicKey || '');
 
   const handleSave = () => {
     if (!publicKey.trim()) {
@@ -45,12 +45,12 @@ const UploadcareConfigComponent = ({ onSave, savedConfig }: UploadcareConfigProp
           <Input
             id="publicKey"
             type="text"
-            placeholder="Enter your public key"
+            placeholder="Enter your public key (e.g., 0c3880802d777dec80b2)"
             value={publicKey}
             onChange={(e) => setPublicKey(e.target.value)}
           />
           <p className="text-xs text-gray-500">
-            Find your public key in your Uploadcare dashboard
+            Find your public key in your Uploadcare dashboard under API keys
           </p>
         </div>
         
