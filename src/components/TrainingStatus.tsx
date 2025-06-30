@@ -1,69 +1,49 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Zap, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { testTrainLoraWithUrl } from '@/lib/falApi';
+import { falApi } from '@/lib/falApi';
 
 interface TrainingStatusProps {
   images: File[];
   triggerWord: string;
   onComplete: (modelUrl: string) => void;
   onTrainingId: (id: string) => void;
-  testUrl?: string; // Optional test URL
+  zipUrl: string;
+  testUrl?: string;
 }
 
-const TrainingStatus = ({ images, triggerWord, onComplete, onTrainingId, testUrl }: TrainingStatusProps) => {
+const TrainingStatus = ({ images, triggerWord, onComplete, onTrainingId, zipUrl, testUrl }: TrainingStatusProps) => {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<'preparing' | 'training' | 'completed' | 'error'>('preparing');
   const [trainingId, setTrainingId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   const startTraining = async () => {
     try {
-      let data;
+      setStatus('training');
+      setProgress(10);
+
+      const urlToUse = testUrl || zipUrl;
+      console.log('Starting training with URL:', urlToUse);
       
-      if (testUrl) {
-        // Use direct URL for testing
-        console.log('Testing with direct URL:', testUrl);
-        data = await testTrainLoraWithUrl(testUrl, triggerWord);
-        toast.success('Training started with test URL!');
-      } else {
-        // Use regular file upload process
-        const formData = new FormData();
-        
-        images.forEach((file, index) => {
-          if (file.type === 'application/zip') {
-            formData.append('zip_file', file);
-          } else {
-            formData.append('images', file);
-          }
-        });
-        
-        formData.append('trigger_word', triggerWord);
-
-        const response = await fetch('/api/train-lora', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to start training');
-        }
-
-        data = await response.json();
-        toast.success('Training started successfully!');
-      }
-
+      const data = await falApi.trainLora(urlToUse, triggerWord);
+      
       setTrainingId(data.request_id);
       onTrainingId(data.request_id);
-      setStatus('training');
+      setProgress(25);
+      
+      toast.success('Training started successfully!');
       
       // Start polling for status
       pollTrainingStatus(data.request_id);
     } catch (error) {
       console.error('Training error:', error);
       setStatus('error');
+      setErrorMessage(error instanceof Error ? error.message : 'Training failed');
       toast.error('Failed to start training. Please try again.');
     }
   };
@@ -71,31 +51,46 @@ const TrainingStatus = ({ images, triggerWord, onComplete, onTrainingId, testUrl
   const pollTrainingStatus = async (requestId: string) => {
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch(`/api/training-status/${requestId}`);
-        const data = await response.json();
+        const data = await falApi.getTrainingStatus(requestId);
         
-        if (data.status === 'completed') {
+        console.log('Training status:', data);
+        
+        if (data.status === 'COMPLETED') {
           setProgress(100);
           setStatus('completed');
           clearInterval(pollInterval);
-          onComplete(data.diffusers_lora_file.url);
-          toast.success('LoRA training completed!');
-        } else if (data.status === 'failed') {
+          
+          // Get the final result
+          const result = await falApi.getTrainingResult(requestId);
+          console.log('Training result:', result);
+          
+          if (result.diffusers_lora_file?.url) {
+            onComplete(result.diffusers_lora_file.url);
+            toast.success('LoRA training completed!');
+          } else {
+            throw new Error('No LoRA file URL in training result');
+          }
+        } else if (data.status === 'FAILED') {
           setStatus('error');
+          setErrorMessage('Training failed on the server');
           clearInterval(pollInterval);
           toast.error('Training failed. Please try again.');
         } else {
           // Update progress based on status
-          const progressMap = {
+          const progressMap: Record<string, number> = {
             'IN_PROGRESS': 75,
-            'IN_QUEUE': 25,
+            'IN_QUEUE': 50,
           };
-          setProgress(progressMap[data.status as keyof typeof progressMap] || 50);
+          const newProgress = progressMap[data.status] || 60;
+          if (newProgress > progress) {
+            setProgress(newProgress);
+          }
         }
       } catch (error) {
         console.error('Polling error:', error);
         clearInterval(pollInterval);
         setStatus('error');
+        setErrorMessage('Failed to check training status');
         toast.error('Failed to check training status');
       }
     }, 5000); // Poll every 5 seconds
@@ -120,13 +115,13 @@ const TrainingStatus = ({ images, triggerWord, onComplete, onTrainingId, testUrl
   const getStatusText = () => {
     switch (status) {
       case 'preparing':
-        return 'Preparing your images...';
+        return 'Preparing to train your LoRA model...';
       case 'training':
         return 'Training your LoRA model...';
       case 'completed':
         return 'Training completed successfully!';
       case 'error':
-        return 'Training failed. Please try again.';
+        return `Training failed: ${errorMessage}`;
     }
   };
 
@@ -135,7 +130,7 @@ const TrainingStatus = ({ images, triggerWord, onComplete, onTrainingId, testUrl
       <CardHeader>
         <CardTitle className="text-2xl text-center flex items-center justify-center space-x-2">
           {getStatusIcon()}
-          <span>LoRA Training</span>
+          <span>Step 3: LoRA Training</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -146,7 +141,7 @@ const TrainingStatus = ({ images, triggerWord, onComplete, onTrainingId, testUrl
               {testUrl ? (
                 <>Training with test URL using trigger word "{triggerWord}"</>
               ) : (
-                <>Training with {images.length} images using trigger word "{triggerWord}"</>
+                <>Training from uploaded files using trigger word "{triggerWord}"</>
               )}
             </p>
           </div>
@@ -165,10 +160,17 @@ const TrainingStatus = ({ images, triggerWord, onComplete, onTrainingId, testUrl
             </div>
           )}
 
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <p className="text-sm text-blue-800 mb-2">Training Data URL:</p>
+            <code className="text-xs bg-white p-2 rounded border font-mono text-blue-700 block break-all">
+              {testUrl || zipUrl}
+            </code>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
             <div className="text-center">
               <div className="font-semibold">Source</div>
-              <div>{testUrl ? 'Test URL' : `${images.length} Images`}</div>
+              <div>{testUrl ? 'Test URL' : 'Uploaded Files'}</div>
             </div>
             <div className="text-center">
               <div className="font-semibold">Trigger Word</div>

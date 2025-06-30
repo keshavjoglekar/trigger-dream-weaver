@@ -1,23 +1,25 @@
 
 import { useState, useEffect } from "react";
-import { Upload, Zap, Image as ImageIcon, CheckCircle, TestTube } from "lucide-react";
+import { Upload, Zap, Image as ImageIcon, CheckCircle, TestTube, Cloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import ImageUpload from "@/components/ImageUpload";
+import FileUploadStep from "@/components/FileUploadStep";
 import TrainingStatus from "@/components/TrainingStatus";
 import ImageGeneration from "@/components/ImageGeneration";
 import UploadcareConfigComponent from "@/components/UploadcareConfig";
 import { falApi } from "@/lib/falApi";
 import { UploadcareConfig } from "@/lib/uploadcare";
 
-type Step = 'upload' | 'training' | 'generate';
+type Step = 'upload' | 'storage' | 'training' | 'generate';
 
 const Index = () => {
   const [currentStep, setCurrentStep] = useState<Step>('upload');
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
+  const [uploadedZipUrl, setUploadedZipUrl] = useState<string | null>(null);
   const [triggerWord, setTriggerWord] = useState('');
   const [trainingId, setTrainingId] = useState<string | null>(null);
   const [loraModelUrl, setLoraModelUrl] = useState<string | null>(null);
@@ -41,10 +43,10 @@ const Index = () => {
 
   const handleImagesUploaded = (images: File[]) => {
     setUploadedImages(images);
-    toast.success(`${images.length} images uploaded successfully!`);
+    toast.success(`${images.length} files uploaded successfully!`);
   };
 
-  const handleStartTraining = () => {
+  const handleProceedToStorage = () => {
     if (uploadedImages.length === 0 || !triggerWord.trim()) {
       toast.error("Please upload images and enter a trigger word");
       return;
@@ -53,15 +55,22 @@ const Index = () => {
       toast.error("Please configure Uploadcare first");
       return;
     }
+    setCurrentStep('storage');
+    toast.info("Ready to upload to storage...");
+  };
+
+  const handleStorageComplete = (zipUrl: string) => {
+    setUploadedZipUrl(zipUrl);
     setCurrentStep('training');
-    toast.info("Starting LoRA training...");
+    toast.success("Files uploaded to storage successfully!");
   };
 
   const handleTestWithUrl = () => {
     setIsTestMode(true);
     setTriggerWord('testdog');
+    setUploadedZipUrl('https://botboost-video-hosting.s3.eu-north-1.amazonaws.com/drive-download-20250315T101200Z-001.zip');
     setCurrentStep('training');
-    toast.info("Starting test LoRA training with provided URL...");
+    toast.info("Using test URL for training...");
   };
 
   const handleTrainingComplete = (modelUrl: string) => {
@@ -71,7 +80,8 @@ const Index = () => {
   };
 
   const steps = [
-    { id: 'upload', label: 'Upload & Configure', icon: Upload },
+    { id: 'upload', label: 'Upload Files', icon: Upload },
+    { id: 'storage', label: 'Store in Cloud', icon: Cloud },
     { id: 'training', label: 'Train LoRA', icon: Zap },
     { id: 'generate', label: 'Generate Images', icon: ImageIcon },
   ];
@@ -109,6 +119,7 @@ const Index = () => {
               const isActive = currentStep === step.id;
               const isCompleted = 
                 (step.id === 'upload' && uploadedImages.length > 0) ||
+                (step.id === 'storage' && uploadedZipUrl) ||
                 (step.id === 'training' && loraModelUrl) ||
                 (step.id === 'generate' && loraModelUrl);
               
@@ -145,9 +156,9 @@ const Index = () => {
               
               <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
                 <CardHeader>
-                  <CardTitle className="text-2xl text-center">Upload Your Images</CardTitle>
+                  <CardTitle className="text-2xl text-center">Step 1: Upload Your Files</CardTitle>
                   <p className="text-center text-gray-600">
-                    Upload 5-20 high-quality images of your subject
+                    Upload 5-20 high-quality images or a ZIP file containing your images
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -170,24 +181,34 @@ const Index = () => {
                   </div>
 
                   <Button
-                    onClick={handleStartTraining}
+                    onClick={handleProceedToStorage}
                     disabled={uploadedImages.length === 0 || !triggerWord.trim() || !uploadcareConfig}
                     className="w-full py-6 text-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                   >
-                    <Zap className="mr-2" />
-                    Start Training LoRA Model
+                    <Cloud className="mr-2" />
+                    Proceed to Storage Upload
                   </Button>
                 </CardContent>
               </Card>
             </div>
           )}
 
-          {currentStep === 'training' && (
+          {currentStep === 'storage' && (
+            <FileUploadStep
+              images={uploadedImages}
+              triggerWord={triggerWord}
+              onStorageComplete={handleStorageComplete}
+              uploadcareConfig={uploadcareConfig}
+            />
+          )}
+
+          {currentStep === 'training' && uploadedZipUrl && (
             <TrainingStatus
               images={uploadedImages}
               triggerWord={triggerWord}
               onComplete={handleTrainingComplete}
               onTrainingId={setTrainingId}
+              zipUrl={uploadedZipUrl}
               testUrl={isTestMode ? 'https://botboost-video-hosting.s3.eu-north-1.amazonaws.com/drive-download-20250315T101200Z-001.zip' : undefined}
             />
           )}
