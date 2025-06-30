@@ -1,15 +1,17 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { Upload, Zap, Image as ImageIcon, CheckCircle, TestTube } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import ImageUpload from "@/components/ImageUpload";
 import TrainingStatus from "@/components/TrainingStatus";
 import ImageGeneration from "@/components/ImageGeneration";
+import AwsCredentials from "@/components/AwsCredentials";
+import { falApi } from "@/lib/falApi";
+import { S3Config } from "@/lib/s3Upload";
 
 type Step = 'upload' | 'training' | 'generate';
 
@@ -20,6 +22,22 @@ const Index = () => {
   const [trainingId, setTrainingId] = useState<string | null>(null);
   const [loraModelUrl, setLoraModelUrl] = useState<string | null>(null);
   const [isTestMode, setIsTestMode] = useState(false);
+  const [s3Config, setS3Config] = useState<S3Config | null>(null);
+
+  useEffect(() => {
+    // Load saved AWS config from localStorage
+    const savedConfig = localStorage.getItem('aws-s3-config');
+    if (savedConfig) {
+      const config = JSON.parse(savedConfig);
+      setS3Config(config);
+      falApi.setS3Config(config);
+    }
+  }, []);
+
+  const handleS3ConfigSave = (config: S3Config) => {
+    setS3Config(config);
+    falApi.setS3Config(config);
+  };
 
   const handleImagesUploaded = (images: File[]) => {
     setUploadedImages(images);
@@ -31,13 +49,17 @@ const Index = () => {
       toast.error("Please upload images and enter a trigger word");
       return;
     }
+    if (!s3Config) {
+      toast.error("Please configure AWS S3 credentials first");
+      return;
+    }
     setCurrentStep('training');
     toast.info("Starting LoRA training...");
   };
 
   const handleTestWithUrl = () => {
     setIsTestMode(true);
-    setTriggerWord('testdog'); // Set a default trigger word for testing
+    setTriggerWord('testdog');
     setCurrentStep('training');
     toast.info("Starting test LoRA training with provided URL...");
   };
@@ -118,42 +140,46 @@ const Index = () => {
         {/* Main Content */}
         <div className="max-w-4xl mx-auto">
           {currentStep === 'upload' && (
-            <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="text-2xl text-center">Upload Your Images</CardTitle>
-                <p className="text-center text-gray-600">
-                  Upload 5-20 high-quality images of your subject
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <ImageUpload onImagesUploaded={handleImagesUploaded} />
-                
-                <div className="space-y-2">
-                  <Label htmlFor="trigger-word" className="text-lg font-medium">
-                    Trigger Word
-                  </Label>
-                  <Input
-                    id="trigger-word"
-                    placeholder="e.g., 'mydog', 'mycorp', 'mystyle'"
-                    value={triggerWord}
-                    onChange={(e) => setTriggerWord(e.target.value)}
-                    className="text-lg py-3"
-                  />
-                  <p className="text-sm text-gray-500">
-                    This word will be used to trigger your custom style in prompts
+            <div className="space-y-6">
+              <AwsCredentials onSave={handleS3ConfigSave} savedConfig={s3Config} />
+              
+              <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="text-2xl text-center">Upload Your Images</CardTitle>
+                  <p className="text-center text-gray-600">
+                    Upload 5-20 high-quality images of your subject
                   </p>
-                </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <ImageUpload onImagesUploaded={handleImagesUploaded} />
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="trigger-word" className="text-lg font-medium">
+                      Trigger Word
+                    </Label>
+                    <Input
+                      id="trigger-word"
+                      placeholder="e.g., 'mydog', 'mycorp', 'mystyle'"
+                      value={triggerWord}
+                      onChange={(e) => setTriggerWord(e.target.value)}
+                      className="text-lg py-3"
+                    />
+                    <p className="text-sm text-gray-500">
+                      This word will be used to trigger your custom style in prompts
+                    </p>
+                  </div>
 
-                <Button
-                  onClick={handleStartTraining}
-                  disabled={uploadedImages.length === 0 || !triggerWord.trim()}
-                  className="w-full py-6 text-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                >
-                  <Zap className="mr-2" />
-                  Start Training LoRA Model
-                </Button>
-              </CardContent>
-            </Card>
+                  <Button
+                    onClick={handleStartTraining}
+                    disabled={uploadedImages.length === 0 || !triggerWord.trim() || !s3Config}
+                    className="w-full py-6 text-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  >
+                    <Zap className="mr-2" />
+                    Start Training LoRA Model
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           )}
 
           {currentStep === 'training' && (
