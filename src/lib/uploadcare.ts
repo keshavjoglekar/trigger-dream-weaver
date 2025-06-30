@@ -1,5 +1,5 @@
 
-import { uploadFile, UploadcareSimpleAuthSchema } from '@uploadcare/upload-client';
+import { uploadFile } from '@uploadcare/upload-client';
 
 export interface UploadcareConfig {
   publicKey: string;
