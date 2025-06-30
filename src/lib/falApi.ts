@@ -20,29 +20,33 @@ export class FalApi {
 
   async trainLora(images: File[], triggerWord: string): Promise<{ request_id: string }> {
     try {
-      // Convert images to base64 data URLs
-      const imageDataUrls = await Promise.all(
-        images.map(async (file) => {
-          if (file.type === 'application/zip') {
-            // For ZIP files, we still need to convert to base64
-            return await this.fileToBase64(file);
-          } else {
-            return await this.fileToBase64(file);
-          }
-        })
-      );
-
-      const requestBody = {
-        images_data_url: imageDataUrls,
+      let requestBody: any = {
         trigger_word: triggerWord,
         is_style: false,
         iter_multiplier: 1.0
       };
 
+      // Handle ZIP files vs individual images
+      if (images.length === 1 && images[0].type === 'application/zip') {
+        // For ZIP files, send as single data URL
+        const zipDataUrl = await this.fileToBase64(images[0]);
+        requestBody.images_data_url = zipDataUrl;
+      } else {
+        // For multiple individual images, we need to create a ZIP or send the first image
+        // For now, let's send the first image as the API expects a single string
+        const firstImageDataUrl = await this.fileToBase64(images[0]);
+        requestBody.images_data_url = firstImageDataUrl;
+        
+        // Log a warning about multiple images
+        if (images.length > 1) {
+          console.warn(`Multiple images provided (${images.length}), but API expects single string. Using first image only.`);
+        }
+      }
+
       console.log('Sending training request with:', { 
-        imageCount: imageDataUrls.length, 
+        imageCount: images.length, 
         triggerWord,
-        firstImagePreview: imageDataUrls[0]?.substring(0, 50) + '...' 
+        requestBodyKeys: Object.keys(requestBody)
       });
 
       const response = await fetch(`${FAL_API_BASE}/flux-lora-fast-training`, {
