@@ -1,4 +1,3 @@
-
 const FAL_API_KEY = 'adca3c41-c684-405c-a343-9bd42dfd8e1d:b97869943ebc2ec7a06fd1af92c0e6b3';
 
 export class FalApi {
@@ -29,7 +28,7 @@ export class FalApi {
         num_inference_steps: 28,
         guidance_scale: 3.5,
         num_images: 1,
-        enable_safety_checker: true,
+        enable_safety_checker: false,
       }),
     });
 
@@ -71,6 +70,7 @@ export class FalApi {
         resolution: "1080p",
         duration: "5",
         seed: -1,
+        enable_safety_checker: false,
       }),
     });
 
