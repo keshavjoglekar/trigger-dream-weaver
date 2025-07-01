@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { falApi } from "@/lib/falApi";
+import { falApi, VideoModel, VIDEO_MODELS } from "@/lib/falApi";
 
 const Index = () => {
   const [loraUrl, setLoraUrl] = useState('');
@@ -18,6 +19,7 @@ const Index = () => {
 
   // Video generation states
   const [videoPrompt, setVideoPrompt] = useState('');
+  const [selectedVideoModel, setSelectedVideoModel] = useState<VideoModel>('fal-ai/bytedance/seedance/v1/pro/image-to-video');
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [videoGenerationStatus, setVideoGenerationStatus] = useState<string>('');
@@ -74,7 +76,7 @@ const Index = () => {
     setVideoGenerationStatus('Submitting video request...');
     
     try {
-      console.log('Generating video with:', { imageUrl: generatedImage, prompt: videoPrompt });
+      console.log('Generating video with:', { imageUrl: generatedImage, prompt: videoPrompt, model: selectedVideoModel });
       
       // Show different status messages during video generation
       const statusInterval = setInterval(() => {
@@ -86,7 +88,7 @@ const Index = () => {
         });
       }, 4000);
 
-      const result = await falApi.generateVideo(generatedImage, videoPrompt);
+      const result = await falApi.generateVideo(generatedImage, videoPrompt, selectedVideoModel);
       
       clearInterval(statusInterval);
       
@@ -270,6 +272,27 @@ const Index = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="video-model" className="text-lg font-medium">
+                    Video Model
+                  </Label>
+                  <Select value={selectedVideoModel} onValueChange={(value: VideoModel) => setSelectedVideoModel(value)}>
+                    <SelectTrigger className="text-lg py-3">
+                      <SelectValue placeholder="Select a video model" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border shadow-lg z-50">
+                      {VIDEO_MODELS.map((model) => (
+                        <SelectItem key={model.value} value={model.value}>
+                          {model.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-gray-500">
+                    Choose the AI model for video generation
+                  </p>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="video-prompt" className="text-lg font-medium">
                     Video Prompt

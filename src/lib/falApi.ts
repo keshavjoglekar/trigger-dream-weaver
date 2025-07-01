@@ -1,5 +1,18 @@
 const FAL_API_KEY = 'adca3c41-c684-405c-a343-9bd42dfd8e1d:b97869943ebc2ec7a06fd1af92c0e6b3';
 
+export type VideoModel = 
+  | 'fal-ai/bytedance/seedance/v1/pro/image-to-video'
+  | 'fal-ai/kling-video/v2.1/master/image-to-video'
+  | 'fal-ai/hunyuan-video-image-to-video'
+  | 'fal-ai/minimax/hailuo-02/standard/image-to-video';
+
+export const VIDEO_MODELS: { value: VideoModel; label: string }[] = [
+  { value: 'fal-ai/bytedance/seedance/v1/pro/image-to-video', label: 'Seedance Pro' },
+  { value: 'fal-ai/kling-video/v2.1/master/image-to-video', label: 'Kling Video' },
+  { value: 'fal-ai/hunyuan-video-image-to-video', label: 'Hunyuan Video' },
+  { value: 'fal-ai/minimax/hailuo-02/standard/image-to-video', label: 'Hailuo' },
+];
+
 export class FalApi {
   private apiKey: string;
 
@@ -54,11 +67,11 @@ export class FalApi {
     throw new Error('Unexpected response format from API');
   }
 
-  async generateVideo(imageUrl: string, prompt: string): Promise<{ video: { url: string }, seed: number }> {
-    console.log('Generating video with FAL API:', { imageUrl, prompt });
+  async generateVideo(imageUrl: string, prompt: string, model: VideoModel = 'fal-ai/bytedance/seedance/v1/pro/image-to-video'): Promise<{ video: { url: string }, seed: number }> {
+    console.log('Generating video with FAL API:', { imageUrl, prompt, model });
     
     // Initial request to queue the video generation
-    const response = await fetch(`https://queue.fal.run/fal-ai/bytedance/seedance/v1/pro/image-to-video`, {
+    const response = await fetch(`https://queue.fal.run/${model}`, {
       method: 'POST',
       headers: {
         'Authorization': `Key ${this.apiKey}`,
