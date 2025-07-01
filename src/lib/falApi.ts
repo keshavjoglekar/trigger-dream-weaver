@@ -67,8 +67,69 @@ export class FalApi {
     throw new Error('Unexpected response format from API');
   }
 
+  private buildSeedanceParams(imageUrl: string, prompt: string) {
+    return {
+      prompt,
+      image_url: imageUrl,
+      resolution: "1080p",
+      duration: "5",
+      seed: -1,
+    };
+  }
+
+  private buildKlingParams(imageUrl: string, prompt: string) {
+    return {
+      prompt,
+      image_url: imageUrl,
+      duration: "5",
+      negative_prompt: "blur, distort, and low quality",
+      cfg_scale: 0.5,
+    };
+  }
+
+  private buildHunyuanParams(imageUrl: string, prompt: string) {
+    return {
+      prompt,
+      image_url: imageUrl,
+      aspect_ratio: "16:9",
+      resolution: "720p",
+      num_frames: 129,
+      i2v_stability: false,
+    };
+  }
+
+  private buildHailuoParams(imageUrl: string, prompt: string) {
+    return {
+      prompt,
+      image_url: imageUrl,
+      duration: "6",
+      prompt_optimizer: true,
+    };
+  }
+
   async generateVideo(imageUrl: string, prompt: string, model: VideoModel = 'fal-ai/bytedance/seedance/v1/pro/image-to-video'): Promise<{ video: { url: string }, seed: number }> {
     console.log('Generating video with FAL API:', { imageUrl, prompt, model });
+    
+    // Build model-specific parameters
+    let requestBody;
+    switch (model) {
+      case 'fal-ai/bytedance/seedance/v1/pro/image-to-video':
+        requestBody = this.buildSeedanceParams(imageUrl, prompt);
+        break;
+      case 'fal-ai/kling-video/v2.1/master/image-to-video':
+        requestBody = this.buildKlingParams(imageUrl, prompt);
+        break;
+      case 'fal-ai/hunyuan-video-image-to-video':
+        requestBody = this.buildHunyuanParams(imageUrl, prompt);
+        break;
+      case 'fal-ai/minimax/hailuo-02/standard/image-to-video':
+        requestBody = this.buildHailuoParams(imageUrl, prompt);
+        break;
+      default:
+        requestBody = this.buildSeedanceParams(imageUrl, prompt);
+    }
+
+    console.log('Request body for model:', model, requestBody);
     
     // Initial request to queue the video generation
     const response = await fetch(`https://queue.fal.run/${model}`, {
@@ -77,13 +138,7 @@ export class FalApi {
         'Authorization': `Key ${this.apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        prompt,
-        image_url: imageUrl,
-        resolution: "1080p",
-        duration: "5",
-        seed: -1,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
