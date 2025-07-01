@@ -70,7 +70,6 @@ export class FalApi {
         resolution: "1080p",
         duration: "5",
         seed: -1,
-        enable_safety_checker: false,
       }),
     });
 
