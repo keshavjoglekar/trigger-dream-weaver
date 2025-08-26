@@ -14,17 +14,25 @@ export const VIDEO_MODELS: { value: VideoModel; label: string }[] = [
 ];
 
 export class FalApi {
-  private apiKey: string;
+  private apiKey: string | null = null;
 
-  constructor() {
-    this.apiKey = this.getApiKey();
+  constructor(apiKey?: string) {
+    if (apiKey) {
+      this.apiKey = apiKey;
+    }
   }
 
   private getApiKey(): string {
+    if (this.apiKey) {
+      return this.apiKey;
+    }
+    
     const storedKey = localStorage.getItem('fal_api_key');
     if (!storedKey) {
       throw new Error('FAL API key not found. Please set your API key in the settings.');
     }
+    
+    this.apiKey = storedKey;
     return storedKey;
   }
 
@@ -47,7 +55,7 @@ export class FalApi {
     const response = await fetch(`https://queue.fal.run/fal-ai/flux-lora`, {
       method: 'POST',
       headers: {
-        'Authorization': `Key ${this.apiKey}`,
+        'Authorization': `Key ${this.getApiKey()}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -155,7 +163,7 @@ export class FalApi {
     const response = await fetch(`https://queue.fal.run/${model}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Key ${this.apiKey}`,
+        'Authorization': `Key ${this.getApiKey()}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),
@@ -197,7 +205,7 @@ export class FalApi {
         const statusResponse = await fetch(statusUrl, {
           method: 'GET',
           headers: {
-            'Authorization': `Key ${this.apiKey}`,
+            'Authorization': `Key ${this.getApiKey()}`,
           },
         });
 
@@ -216,7 +224,7 @@ export class FalApi {
           const resultResponse = await fetch(responseUrl, {
             method: 'GET',
             headers: {
-              'Authorization': `Key ${this.apiKey}`,
+              'Authorization': `Key ${this.getApiKey()}`,
             },
           });
 
@@ -265,7 +273,7 @@ export class FalApi {
         const statusResponse = await fetch(statusUrl, {
           method: 'GET',
           headers: {
-            'Authorization': `Key ${this.apiKey}`,
+            'Authorization': `Key ${this.getApiKey()}`,
           },
         });
 
@@ -284,7 +292,7 @@ export class FalApi {
           const resultResponse = await fetch(responseUrl, {
             method: 'GET',
             headers: {
-              'Authorization': `Key ${this.apiKey}`,
+              'Authorization': `Key ${this.getApiKey()}`,
             },
           });
 
@@ -320,4 +328,12 @@ export class FalApi {
   }
 }
 
-export const falApi = new FalApi();
+// Create API instance only when needed
+let falApiInstance: FalApi | null = null;
+
+export const getFalApi = (): FalApi => {
+  if (!falApiInstance) {
+    falApiInstance = new FalApi();
+  }
+  return falApiInstance;
+};

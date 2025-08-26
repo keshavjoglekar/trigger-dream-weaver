@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { falApi, VideoModel, VIDEO_MODELS } from "@/lib/falApi";
+import { getFalApi, VideoModel, VIDEO_MODELS } from "@/lib/falApi";
 
 // RetroGrid background adapted from hero-section for full-page theme
 const RetroGrid = ({
@@ -83,7 +83,7 @@ const Index = () => {
         });
       }, 3000);
 
-      const result = await falApi.generateImage(prompt, loraUrl);
+      const result = await getFalApi().generateImage(prompt, loraUrl);
       clearInterval(statusInterval);
 
       if (result.images && result.images.length > 0) {
@@ -123,7 +123,7 @@ const Index = () => {
         });
       }, 4000);
 
-      const result = await falApi.generateVideo(
+      const result = await getFalApi().generateVideo(
         generatedImage,
         videoPrompt,
         selectedVideoModel
