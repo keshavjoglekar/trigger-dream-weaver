@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { falApi, VideoModel, VIDEO_MODELS } from "@/lib/falApi";
+import { createFalApi, VideoModel, VIDEO_MODELS } from "@/lib/falApi";
 
 // RetroGrid background adapted from hero-section for full-page theme
 const RetroGrid = ({
@@ -48,6 +48,7 @@ const RetroGrid = ({
 };
 
 const Index = () => {
+  const [apiKey, setApiKey] = useState("");
   const [loraUrl, setLoraUrl] = useState("");
   const [prompt, setPrompt] = useState("");
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
@@ -65,6 +66,10 @@ const Index = () => {
   );
 
   const generateImage = async () => {
+    if (!apiKey.trim()) {
+      toast.error("Please enter your FAL API key");
+      return;
+    }
     if (!loraUrl.trim() || !prompt.trim()) {
       toast.error("Please provide both LoRA URL and prompt");
       return;
@@ -83,6 +88,7 @@ const Index = () => {
         });
       }, 3000);
 
+      const falApi = createFalApi(apiKey);
       const result = await falApi.generateImage(prompt, loraUrl);
       clearInterval(statusInterval);
 
@@ -104,6 +110,10 @@ const Index = () => {
   };
 
   const generateVideo = async () => {
+    if (!apiKey.trim()) {
+      toast.error("Please enter your FAL API key");
+      return;
+    }
     if (!generatedImage || !videoPrompt.trim()) {
       toast.error("Please enter a video prompt");
       return;
@@ -123,6 +133,7 @@ const Index = () => {
         });
       }, 4000);
 
+      const falApi = createFalApi(apiKey);
       const result = await falApi.generateVideo(
         generatedImage,
         videoPrompt,
@@ -216,6 +227,21 @@ const Index = () => {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
+              <Label htmlFor="api-key" className="text-lg font-medium">
+                FAL API Key
+              </Label>
+              <Input
+                id="api-key"
+                type="password"
+                placeholder="Enter your FAL API key"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className="text-lg py-3 bg-white/70 dark:bg-gray-900/60 border border-black/10 dark:border-white/10"
+              />
+              <p className="text-sm text-gray-500">Get your API key from <a href="https://fal.ai" target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline">fal.ai</a></p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="lora-url" className="text-lg font-medium">
                 LoRA Model URL
               </Label>
@@ -245,7 +271,7 @@ const Index = () => {
 
             <Button
               onClick={generateImage}
-              disabled={isGenerating || !loraUrl.trim() || !prompt.trim()}
+              disabled={isGenerating || !apiKey.trim() || !loraUrl.trim() || !prompt.trim()}
               className="w-full py-6 text-lg bg-gradient-to-tr from-zinc-300/20 via-purple-400/30 to-transparent dark:from-zinc-300/5 dark:via-purple-400/20 text-gray-900 dark:text-white border-input border hover:from-zinc-300/30 hover:via-purple-400/40 transition-all"
             >
               {isGenerating ? (
@@ -346,7 +372,7 @@ const Index = () => {
 
               <Button
                 onClick={generateVideo}
-                disabled={isGeneratingVideo || !videoPrompt.trim()}
+                disabled={isGeneratingVideo || !apiKey.trim() || !videoPrompt.trim()}
                 className="w-full py-6 text-lg bg-gradient-to-tr from-zinc-300/20 via-purple-400/30 to-transparent dark:from-zinc-300/5 dark:via-purple-400/20 text-gray-900 dark:text-white border"
               >
                 {isGeneratingVideo ? (

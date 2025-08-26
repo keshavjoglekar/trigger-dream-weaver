@@ -1,5 +1,3 @@
-const FAL_API_KEY = 'adca3c41-c684-405c-a343-9bd42dfd8e1d:b97869943ebc2ec7a06fd1af92c0e6b3';
-
 export type VideoModel = 
   | 'fal-ai/bytedance/seedance/v1/pro/image-to-video'
   | 'fal-ai/kling-video/v2.1/master/image-to-video'
@@ -16,8 +14,8 @@ export const VIDEO_MODELS: { value: VideoModel; label: string }[] = [
 export class FalApi {
   private apiKey: string;
 
-  constructor() {
-    this.apiKey = FAL_API_KEY;
+  constructor(apiKey: string) {
+    this.apiKey = apiKey;
   }
 
   async generateImage(prompt: string, loraUrl: string): Promise<{ images: Array<{ url: string }> }> {
@@ -300,4 +298,4 @@ export class FalApi {
   }
 }
 
-export const falApi = new FalApi();
+export const createFalApi = (apiKey: string) => new FalApi(apiKey);
