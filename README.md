@@ -2,19 +2,6 @@
 
 A cutting-edge web application that transforms your creative vision into reality using state-of-the-art AI models for image and video generation. Built for creators, designers, and anyone who wants to harness the power of AI to bring their ideas to life.
 
-## 🔒 Security Notice
-
-**IMPORTANT**: This application requires your personal FAL API key to function. Your API key is:
-- Stored locally in your browser only
-- Never transmitted to any external servers (except FAL's official API)
-- Not included in this repository's code
-- Completely under your control
-
-To get started, you'll need to:
-1. Sign up at [fal.ai](https://fal.ai/dashboard) to get your API key
-2. Enter your API key when prompted in the application
-3. Your key will be securely stored in your browser's local storage
-
 ## ✨ What This Project Does
 
 **AI Creative Studio** is a comprehensive platform that democratizes access to advanced AI generation tools, offering:
@@ -89,20 +76,22 @@ This project represents my belief that powerful AI tools should be accessible, b
    npm install
    ```
 
-3. **Get your FAL API key**
-   - Visit [fal.ai](https://fal.ai/dashboard)
-   - Sign up for an account
-   - Generate your API key
+3. **Set up environment variables**
+   ```bash
+   cp .env.example .env.local
+   ```
+   Add your FAL AI API key to `.env.local`:
+   ```
+   VITE_FAL_API_KEY=your_fal_api_key_here
+   ```
 
 4. **Start the development server**
    ```bash
    npm run dev
    ```
 
-5. **Open your browser and set up your API key**
-   - Navigate to `http://localhost:5173`
-   - Enter your FAL API key when prompted
-   - Start creating!
+5. **Open your browser**
+   Navigate to `http://localhost:5173`
 
 ## 💡 Usage Examples
 

@@ -1,4 +1,4 @@
-// API key is stored in localStorage for security
+const FAL_API_KEY = 'adca3c41-c684-405c-a343-9bd42dfd8e1d:b97869943ebc2ec7a06fd1af92c0e6b3';
 
 export type VideoModel = 
   | 'fal-ai/bytedance/seedance/v1/pro/image-to-video'
@@ -14,38 +14,10 @@ export const VIDEO_MODELS: { value: VideoModel; label: string }[] = [
 ];
 
 export class FalApi {
-  private apiKey: string | null = null;
+  private apiKey: string;
 
-  constructor(apiKey?: string) {
-    if (apiKey) {
-      this.apiKey = apiKey;
-    }
-  }
-
-  private getApiKey(): string {
-    if (this.apiKey) {
-      return this.apiKey;
-    }
-    
-    const storedKey = localStorage.getItem('fal_api_key');
-    if (!storedKey) {
-      throw new Error('FAL API key not found. Please set your API key in the settings.');
-    }
-    
-    this.apiKey = storedKey;
-    return storedKey;
-  }
-
-  static setApiKey(apiKey: string): void {
-    localStorage.setItem('fal_api_key', apiKey);
-  }
-
-  static hasApiKey(): boolean {
-    return !!localStorage.getItem('fal_api_key');
-  }
-
-  static clearApiKey(): void {
-    localStorage.removeItem('fal_api_key');
+  constructor() {
+    this.apiKey = FAL_API_KEY;
   }
 
   async generateImage(prompt: string, loraUrl: string): Promise<{ images: Array<{ url: string }> }> {
@@ -55,7 +27,7 @@ export class FalApi {
     const response = await fetch(`https://queue.fal.run/fal-ai/flux-lora`, {
       method: 'POST',
       headers: {
-        'Authorization': `Key ${this.getApiKey()}`,
+        'Authorization': `Key ${this.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -163,7 +135,7 @@ export class FalApi {
     const response = await fetch(`https://queue.fal.run/${model}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Key ${this.getApiKey()}`,
+        'Authorization': `Key ${this.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),
@@ -205,7 +177,7 @@ export class FalApi {
         const statusResponse = await fetch(statusUrl, {
           method: 'GET',
           headers: {
-            'Authorization': `Key ${this.getApiKey()}`,
+            'Authorization': `Key ${this.apiKey}`,
           },
         });
 
@@ -224,7 +196,7 @@ export class FalApi {
           const resultResponse = await fetch(responseUrl, {
             method: 'GET',
             headers: {
-              'Authorization': `Key ${this.getApiKey()}`,
+              'Authorization': `Key ${this.apiKey}`,
             },
           });
 
@@ -273,7 +245,7 @@ export class FalApi {
         const statusResponse = await fetch(statusUrl, {
           method: 'GET',
           headers: {
-            'Authorization': `Key ${this.getApiKey()}`,
+            'Authorization': `Key ${this.apiKey}`,
           },
         });
 
@@ -292,7 +264,7 @@ export class FalApi {
           const resultResponse = await fetch(responseUrl, {
             method: 'GET',
             headers: {
-              'Authorization': `Key ${this.getApiKey()}`,
+              'Authorization': `Key ${this.apiKey}`,
             },
           });
 
@@ -328,12 +300,4 @@ export class FalApi {
   }
 }
 
-// Create API instance only when needed
-let falApiInstance: FalApi | null = null;
-
-export const getFalApi = (): FalApi => {
-  if (!falApiInstance) {
-    falApiInstance = new FalApi();
-  }
-  return falApiInstance;
-};
+export const falApi = new FalApi();
