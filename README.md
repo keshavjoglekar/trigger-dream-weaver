@@ -76,30 +76,40 @@ This project represents my belief that powerful AI tools should be accessible, b
    npm install
    ```
 
-3. **Set up environment variables**
-   ```bash
-   cp .env.example .env.local
-   ```
-   Add your FAL AI API key to `.env.local`:
-   ```
-   VITE_FAL_API_KEY=your_fal_api_key_here
-   ```
-
-4. **Start the development server**
+3. **Start the development server**
    ```bash
    npm run dev
    ```
 
-5. **Open your browser**
+4. **Open your browser**
    Navigate to `http://localhost:5173`
+
+5. **Enter your API key**
+   - When you first open the app, you'll be prompted to enter your FAL AI API key
+   - Your API key is stored securely in your browser's local storage
+   - The key never leaves your browser or gets stored on any server
+
+## 🔒 Security & Privacy
+
+**Your API Keys Are Safe**: This application is designed with security in mind:
+- ✅ No hardcoded API keys in the source code
+- ✅ API keys are entered by users and stored locally in their browser
+- ✅ Keys are never transmitted to or stored on external servers
+- ✅ Safe to deploy publicly without exposing sensitive credentials
+
+**For Developers**: This project demonstrates best practices for handling API keys in client-side applications, making it safe for public GitHub repositories and open-source development.
 
 ## 💡 Usage Examples
 
+### Getting Started
+1. **Enter your FAL API key** in the secure input field
+2. **Add your LoRA model URL** (hosted `.safetensors` file)
+3. **Write your creative prompt** describing what you want to generate
+
 ### Generating Custom Images
-1. Upload your LoRA model (`.safetensors` file)
-2. Enter your trigger word and creative prompt
-3. Click "Generate Image" and watch the magic happen
-4. Download your high-quality result
+1. Provide your LoRA model URL and creative prompt
+2. Click "Generate Image" and watch the magic happen
+3. Download your high-quality result
 
 ### Creating Dynamic Videos
 1. Upload or generate a base image
